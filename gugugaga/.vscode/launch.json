@@ -5,10 +5,10 @@
     "version": "0.2.0",
     "configurations": [
       {
-        "name": "C#: HopKripak Debug",
+        "name": "C#: gugugaga Debug",
         "type": "dotnet",
         "request": "launch",
-        "projectPath": "${workspaceFolder}/HopKripak.csproj"
+        "projectPath": "${workspaceFolder}/gugugaga.csproj"
       }
     ],
   }
