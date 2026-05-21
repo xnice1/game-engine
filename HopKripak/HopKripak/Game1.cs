@@ -1,52 +1,40 @@
 ﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
+using KripakEngine; // 1. BRING IN YOUR ENGINE
 
 namespace HopKripak
 {
-    public class Game1 : Game
+    // 2. INHERIT FROM YOUR ENGINE, NOT MONOGAME
+    public class Game1 : EngineCore
     {
-        private GraphicsDeviceManager _graphics;
-        private SpriteBatch _spriteBatch;
-
         public Game1()
         {
-            _graphics = new GraphicsDeviceManager(this);
-            Content.RootDirectory = "Content";
-            IsMouseVisible = true;
+            // Set the vertical screen resolution for your Jump King game here
+            _graphics.PreferredBackBufferWidth = 800;
+            _graphics.PreferredBackBufferHeight = 1000;
         }
 
         protected override void Initialize()
         {
-            // TODO: Add your initialization logic here
+            // Any game-specific setup goes here
 
-            base.Initialize();
+            base.Initialize(); // This automatically calls the Engine's Initialize
         }
 
         protected override void LoadContent()
         {
-            _spriteBatch = new SpriteBatch(GraphicsDevice);
+            // 3. BOOT UP THE ENGINE'S RENDERER
+            base.LoadContent();
 
-            // TODO: use this.Content to load your game content here
+            // TODO: Your Level Designer will eventually write code here to 
+            // spawn the Player and Platform entities using the Engine!
         }
 
-        protected override void Update(GameTime gameTime)
-        {
-            if (GamePad.GetState(PlayerIndex.One).Buttons.Back == ButtonState.Pressed || Keyboard.GetState().IsKeyDown(Keys.Escape))
-                Exit();
-
-            // TODO: Add your update logic here
-
-            base.Update(gameTime);
-        }
-
-        protected override void Draw(GameTime gameTime)
-        {
-            GraphicsDevice.Clear(Color.CornflowerBlue);
-
-            // TODO: Add your drawing code here
-
-            base.Draw(gameTime);
-        }
+        // 4. NOTICE WHAT IS MISSING?
+        // We completely deleted the Update() and Draw() methods from this file!
+        // Why? Because your KripakEngine handles the Game Loop now. 
+        // If you need specific game logic, you will write it in the Engine's Systems, 
+        // not here in the main game file.
     }
 }
