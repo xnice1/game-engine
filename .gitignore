@@ -1,0 +1,42 @@
+# ==========================================
+# C# & .NET BUILD FOLDERS (CRITICAL)
+# ==========================================
+# These folders change every time you hit "Run". NEVER commit these.
+bin/
+obj/
+[Bb]in/
+[Oo]bj/
+
+# ==========================================
+# VISUAL STUDIO SPECIFIC
+# ==========================================
+.vs/
+*.user
+*.userosscache
+*.sln.docstates
+*.suo
+*.cache
+
+# ==========================================
+# JETBRAINS RIDER SPECIFIC
+# ==========================================
+.idea/
+*.sln.iml
+
+# ==========================================
+# MONOGAME SPECIFIC
+# ==========================================
+# Ignore the built content (usually caught by bin/obj, but good to be safe)
+# DO NOT ignore the Content.mgcb file itself, or the raw .png/.wav files!
+*.xnb
+
+# ==========================================
+# OS SPECIFIC (For the Mac users on your team)
+# ==========================================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
