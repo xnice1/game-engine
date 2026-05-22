@@ -10,19 +10,22 @@ namespace MyGame;
 public class AirHockeyScene : Scene
 {
     private Texture2D _pixel;
+    private Texture2D _bgTex, _playerTex, _enemyTex, _puckTex;
     private List<Entity> _entities = new();
 
     // Layout
     private const int W = 800, H = 500;
-    private const int Wall = 14;
+    private const int WallV = 58;  // left/right frame thickness
+    private const int WallH = 42;  // top/bottom frame thickness
+    private const int Wall = WallH; // used for generic clamping (smallest wall)
     private const int GoalH = 130;
-    private const int GoalTop = (H - GoalH) / 2;   // 185
-    private const int GoalBot = GoalTop + GoalH;     // 315
+    private const int GoalTop = (H - GoalH) / 2;
+    private const int GoalBot = GoalTop + GoalH;
 
     private const int PuckR = 12, PaddleR = 26;
     private const int PuckSize = PuckR * 2, PaddleSize = PaddleR * 2;
 
-    private const float PlayerSpeed = 5.5f, BotSpeed = 4.0f;
+    private const float PlayerSpeed = 5.5f, BotSpeed = 2.0f;
     private const float MaxPuckSpeed = 13f, Friction = 0.9985f;
 
     // Match rules
@@ -41,9 +44,13 @@ public class AirHockeyScene : Scene
     private bool _playerWon;
     private float _flashTimer;
 
-    public AirHockeyScene(Texture2D pixel)
+    public AirHockeyScene(Texture2D pixel, Texture2D bgTex, Texture2D playerTex, Texture2D enemyTex, Texture2D puckTex)
     {
         _pixel = pixel;
+        _bgTex = bgTex;
+        _playerTex = playerTex;
+        _enemyTex = enemyTex;
+        _puckTex = puckTex;
         SpawnEntities();
     }
 
@@ -57,18 +64,21 @@ public class AirHockeyScene : Scene
         player.AddComponent(new TransformComponent(new Vector2(80, H / 2f - PaddleR), PaddleSize, PaddleSize));
         player.AddComponent(new PaddleComponent(PlayerSpeed, isPlayer: true));
         player.AddComponent(new RenderComponent(Color.DodgerBlue));
+        player.AddComponent(new SpriteComponent(_playerTex));
         _entities.Add(player);
 
         Entity bot = new Entity();
         bot.AddComponent(new TransformComponent(new Vector2(W - 80 - PaddleSize, H / 2f - PaddleR), PaddleSize, PaddleSize));
         bot.AddComponent(new PaddleComponent(BotSpeed, isPlayer: false));
         bot.AddComponent(new RenderComponent(Color.OrangeRed));
+        bot.AddComponent(new SpriteComponent(_enemyTex));
         _entities.Add(bot);
 
         Entity puck = new Entity();
         puck.AddComponent(new TransformComponent(new Vector2(W / 2f - PuckR, H / 2f - PuckR), PuckSize, PuckSize));
         puck.AddComponent(new PuckComponent(new Vector2(-3.5f, 1.5f)));
         puck.AddComponent(new RenderComponent(Color.WhiteSmoke));
+        puck.AddComponent(new SpriteComponent(_puckTex));
         _entities.Add(puck);
     }
 
@@ -96,7 +106,19 @@ public class AirHockeyScene : Scene
             if (_pauseTimer <= 0)
             {
                 if (CheckWin()) return;
-                _state = _timeRemaining <= 0 ? GameState.SuddenDeath : GameState.Playing;
+                if (_timeRemaining <= 0)
+                {
+                    if (_playerScore == _botScore)
+                        _state = GameState.SuddenDeath;
+                    else
+                    {
+                        _playerWon = _playerScore > _botScore;
+                        _state = GameState.GameOver;
+                        return;
+                    }
+                }
+                else
+                    _state = GameState.Playing;
                 ResetPositions();
             }
             return;
@@ -165,8 +187,8 @@ public class AirHockeyScene : Scene
         if (Input.Down(Keys.A)) t.Position.X -= pad.Speed;
         if (Input.Down(Keys.D)) t.Position.X += pad.Speed;
 
-        t.Position.X = MathHelper.Clamp(t.Position.X, Wall, W / 2 - PaddleSize - 4);
-        t.Position.Y = MathHelper.Clamp(t.Position.Y, Wall, H - Wall - PaddleSize);
+        t.Position.X = MathHelper.Clamp(t.Position.X, WallV, W / 2 - PaddleSize - 4);
+        t.Position.Y = MathHelper.Clamp(t.Position.Y, WallH, H - WallH - PaddleSize);
         pad.Velocity = t.Position - prev;
     }
 
@@ -179,21 +201,26 @@ public class AirHockeyScene : Scene
         Vector2 puckCenter = puckT.Position + new Vector2(PuckR);
         Vector2 botCenter = t.Position + new Vector2(PaddleR);
 
-        // Y: move toward predicted puck intercept
-        float predictedY = PredictY(puckCenter, puckP.Velocity, botCenter.X);
-        float dy = (predictedY - PaddleR) - t.Position.Y;
-        t.Position.Y += MathHelper.Clamp(dy, -pad.Speed, pad.Speed);
+        bool puckStuck = Math.Abs(puckP.Velocity.X) < 1.0f && puckCenter.X > W / 2f;
 
-        // X: advance to meet puck when it's on bot's half, defend otherwise
-        float targetX = (puckCenter.X > W / 2f && puckP.Velocity.X > 0.5f)
-            ? MathHelper.Clamp(puckCenter.X - PaddleSize * 1.8f, W / 2f + 10, W - Wall - PaddleSize - 10)
-            : W - Wall - PaddleSize - 20;
+        // Y: track puck directly when stuck, otherwise use prediction
+        float targetY = puckStuck
+            ? puckCenter.Y - PaddleR
+            : PredictY(puckCenter, puckP.Velocity, botCenter.X) - PaddleR;
+        t.Position.Y += MathHelper.Clamp(targetY - t.Position.Y, -pad.Speed, pad.Speed);
+
+        // X: chase puck to unstick it, advance to meet it, or defend
+        float targetX = puckStuck
+            ? MathHelper.Clamp(puckCenter.X - PaddleR, W / 2f + 10, W - WallV - PaddleSize - 10)
+            : (puckCenter.X > W / 2f && puckP.Velocity.X > 0.5f)
+                ? MathHelper.Clamp(puckCenter.X - PaddleSize * 1.8f, W / 2f + 10, W - WallV - PaddleSize - 10)
+                : W - WallV - PaddleSize - 20;
 
         float dx = targetX - t.Position.X;
         t.Position.X += MathHelper.Clamp(dx, -pad.Speed, pad.Speed);
 
-        t.Position.X = MathHelper.Clamp(t.Position.X, W / 2, W - Wall - PaddleSize);
-        t.Position.Y = MathHelper.Clamp(t.Position.Y, Wall, H - Wall - PaddleSize);
+        t.Position.X = MathHelper.Clamp(t.Position.X, W / 2, W - WallV - PaddleSize);
+        t.Position.Y = MathHelper.Clamp(t.Position.Y, WallH, H - WallH - PaddleSize);
         pad.Velocity = t.Position - prev;
     }
 
@@ -205,7 +232,7 @@ public class AirHockeyScene : Scene
         if (t < 0) return H / 2f;
 
         float y = pos.Y + vel.Y * t;
-        float minY = Wall + PuckR, maxY = H - Wall - PuckR;
+        float minY = WallH + PuckR, maxY = H - WallH - PuckR;
         float range = maxY - minY;
         if (range <= 0) return H / 2f;
 
@@ -221,20 +248,20 @@ public class AirHockeyScene : Scene
         Vector2 pos = puckT.Position;
         Vector2 vel = puckP.Velocity;
 
-        if (pos.Y < Wall) { pos.Y = Wall; vel.Y = Math.Abs(vel.Y); }
-        if (pos.Y + PuckSize > H - Wall) { pos.Y = H - Wall - PuckSize; vel.Y = -Math.Abs(vel.Y); }
+        if (pos.Y < WallH) { pos.Y = WallH; vel.Y = Math.Abs(vel.Y); }
+        if (pos.Y + PuckSize > H - WallH) { pos.Y = H - WallH - PuckSize; vel.Y = -Math.Abs(vel.Y); }
 
-        if (pos.X < Wall)
+        if (pos.X < WallV)
         {
             bool inGoal = pos.Y + PuckSize > GoalTop && pos.Y < GoalBot;
-            if (!inGoal) { pos.X = Wall; vel.X = Math.Abs(vel.X); }
+            if (!inGoal) { pos.X = WallV; vel.X = Math.Abs(vel.X); }
             else if (pos.X + PuckSize < 0) ScoreGoal(scoredByBot: true);
         }
 
-        if (pos.X + PuckSize > W - Wall)
+        if (pos.X + PuckSize > W - WallV)
         {
             bool inGoal = pos.Y + PuckSize > GoalTop && pos.Y < GoalBot;
-            if (!inGoal) { pos.X = W - Wall - PuckSize; vel.X = -Math.Abs(vel.X); }
+            if (!inGoal) { pos.X = W - WallV - PuckSize; vel.X = -Math.Abs(vel.X); }
             else if (pos.X > W) ScoreGoal(scoredByBot: false);
         }
 
@@ -292,16 +319,20 @@ public class AirHockeyScene : Scene
 
     public override void Draw(SpriteBatch spriteBatch)
     {
+        spriteBatch.Draw(_bgTex, new Rectangle(0, 0, W, H), Color.White);
         DrawRink(spriteBatch);
         DrawTimerBar(spriteBatch);
         DrawScore(spriteBatch);
 
         foreach (var entity in _entities)
         {
-            if (!entity.HasComponent<TransformComponent>() || !entity.HasComponent<RenderComponent>()) continue;
+            if (!entity.HasComponent<TransformComponent>()) continue;
             var t = entity.GetComponent<TransformComponent>();
-            var r = entity.GetComponent<RenderComponent>();
-            spriteBatch.Draw(_pixel, t.Bounds, r.DefaultColor);
+
+            if (entity.HasComponent<SpriteComponent>())
+                spriteBatch.Draw(entity.GetComponent<SpriteComponent>().Texture, t.Bounds, Color.White);
+            else if (entity.HasComponent<RenderComponent>())
+                spriteBatch.Draw(_pixel, t.Bounds, entity.GetComponent<RenderComponent>().DefaultColor);
         }
 
         if (_state == GameState.SuddenDeath)
@@ -313,38 +344,13 @@ public class AirHockeyScene : Scene
 
     private void DrawRink(SpriteBatch spriteBatch)
     {
-        Color wallCol = new Color(200, 200, 210);
+        if (_state != GameState.GoalPause) return;
 
-        spriteBatch.Draw(_pixel, new Rectangle(0, GoalTop, Wall, GoalH), new Color(30, 100, 50));
-        spriteBatch.Draw(_pixel, new Rectangle(W - Wall, GoalTop, Wall, GoalH), new Color(120, 40, 30));
-
-        spriteBatch.Draw(_pixel, new Rectangle(0, 0, W, Wall), wallCol);
-        spriteBatch.Draw(_pixel, new Rectangle(0, H - Wall, W, Wall), wallCol);
-        spriteBatch.Draw(_pixel, new Rectangle(0, Wall, Wall, GoalTop - Wall), wallCol);
-        spriteBatch.Draw(_pixel, new Rectangle(0, GoalBot, Wall, H - GoalBot), wallCol);
-        spriteBatch.Draw(_pixel, new Rectangle(W - Wall, Wall, Wall, GoalTop - Wall), wallCol);
-        spriteBatch.Draw(_pixel, new Rectangle(W - Wall, GoalBot, Wall, H - GoalBot), wallCol);
-
-        spriteBatch.Draw(_pixel, new Rectangle(W / 2 - 1, Wall, 2, H - Wall * 2), new Color(60, 70, 60));
-
-        for (int i = 0; i < 16; i++)
-        {
-            double a = i * Math.PI * 2 / 16;
-            int rx = (int)(W / 2 + Math.Cos(a) * 44);
-            int ry = (int)(H / 2 + Math.Sin(a) * 44);
-            spriteBatch.Draw(_pixel, new Rectangle(rx - 2, ry - 2, 4, 4), new Color(60, 70, 60));
-        }
-        spriteBatch.Draw(_pixel, new Rectangle(W / 2 - 3, H / 2 - 3, 6, 6), new Color(60, 70, 60));
-
-        // Goal flash on score
-        if (_state == GameState.GoalPause)
-        {
-            float alpha = Math.Min(1f, _pauseTimer / PauseDuration);
-            if (_botLastScored)
-                spriteBatch.Draw(_pixel, new Rectangle(0, GoalTop, Wall + 8, GoalH), new Color(30, 200, 80, (int)(alpha * 200)));
-            else
-                spriteBatch.Draw(_pixel, new Rectangle(W - Wall - 8, GoalTop, Wall + 8, GoalH), new Color(200, 80, 30, (int)(alpha * 200)));
-        }
+        float alpha = Math.Min(1f, _pauseTimer / PauseDuration);
+        if (_botLastScored)
+            spriteBatch.Draw(_pixel, new Rectangle(0, GoalTop, WallV + 8, GoalH), new Color(30, 200, 80, (int)(alpha * 200)));
+        else
+            spriteBatch.Draw(_pixel, new Rectangle(W - WallV - 8, GoalTop, WallV + 8, GoalH), new Color(200, 80, 30, (int)(alpha * 200)));
     }
 
     private void DrawTimerBar(SpriteBatch spriteBatch)
@@ -352,16 +358,16 @@ public class AirHockeyScene : Scene
         if (_state == GameState.SuddenDeath || _state == GameState.GameOver) return;
 
         float fraction = _timeRemaining / MatchDuration;
-        int barW = (int)(fraction * (W - Wall * 2));
+        int barW = (int)(fraction * (W - WallV * 2));
 
-        spriteBatch.Draw(_pixel, new Rectangle(Wall, Wall + 2, W - Wall * 2, 4), new Color(25, 25, 25));
+        spriteBatch.Draw(_pixel, new Rectangle(WallV, WallH / 2 - 2, W - WallV * 2, 4), new Color(25, 25, 25));
 
         if (barW > 0)
         {
             Color barColor = fraction > 0.5f
                 ? Color.Lerp(Color.Yellow, Color.LimeGreen, (fraction - 0.5f) * 2f)
                 : Color.Lerp(Color.Red, Color.Yellow, fraction * 2f);
-            spriteBatch.Draw(_pixel, new Rectangle(Wall, Wall + 2, barW, 4), barColor);
+            spriteBatch.Draw(_pixel, new Rectangle(WallV, WallH / 2 - 2, barW, 4), barColor);
         }
     }
 
