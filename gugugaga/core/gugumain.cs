@@ -1,54 +1,56 @@
-﻿using JumpKingClone.Core;
-using JumpKingClone.Scenes;
+﻿using JumpKingClone.Scenes;
+using KripakEngine;
 using Microsoft.Xna.Framework;
-using Microsoft.Xna.Framework.Input;
+using Microsoft.Xna.Framework.Graphics;
 
 namespace gugugaga
 {
     public class gugumain : KripakEngine.EngineCore
     {
-        private Scene currentScene;
+        private RenderTarget2D _virtualRenderTarget;
+        private Scene _currentScene;
+
+        public const int TargetWidth = 480;
+        public const int TargetHeight = 270;
 
         public gugumain() : base()
         {
-
+            _graphics.PreferredBackBufferWidth = 1280;
+            _graphics.PreferredBackBufferHeight = 720;
+            _graphics.ApplyChanges();
         }
 
         protected override void Initialize()
         {
             base.Initialize();
-        }
 
-        protected override void LoadContent()
-        {
-            base.LoadContent();
+            _virtualRenderTarget = new RenderTarget2D(GraphicsDevice, TargetWidth, TargetHeight);
 
-            currentScene = new GameplayScene(_pixel);
+            _currentScene = new JumpKingClone.Scenes.GameplayScene(_pixel, Content);
         }
 
         protected override void Update(GameTime gameTime)
         {
-            Input.Update();
-
-            currentScene.Update(gameTime);
-
-            if (GamePad.GetState(PlayerIndex.One).Buttons.Back == ButtonState.Pressed || Input.Down(Keys.Escape))
-                Exit();
+            JumpKingClone.Core.Input.Update();
 
             base.Update(gameTime);
+
+            _currentScene?.Update(gameTime);
         }
 
         protected override void Draw(GameTime gameTime)
         {
-            GraphicsDevice.Clear(Color.CornflowerBlue);
+            GraphicsDevice.SetRenderTarget(_virtualRenderTarget);
+            GraphicsDevice.Clear(Color.Black);
 
-            _spriteBatch.Begin();
+            _currentScene?.Draw(_spriteBatch);
 
-            currentScene.Draw(_spriteBatch);
+            GraphicsDevice.SetRenderTarget(null);
+            GraphicsDevice.Clear(Color.Black);
 
+            _spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp);
+            _spriteBatch.Draw(_virtualRenderTarget, new Rectangle(0, 0, Window.ClientBounds.Width, Window.ClientBounds.Height), Color.White);
             _spriteBatch.End();
-
-            base.Draw(gameTime);
         }
     }
 }

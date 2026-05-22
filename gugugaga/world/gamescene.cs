@@ -1,167 +1,282 @@
-using System.Collections.Generic;
-using System.Linq;
+using JumpKingClone.Components;
 using JumpKingClone.Core;
-using JumpKingClone.Scenes;
 using KripakEngine;
 using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Content;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
+using System;
+using System.Collections.Generic;
+using System.Linq;
 
-public class GameplayScene : Scene
+namespace JumpKingClone.Scenes
 {
-    private Texture2D _pixel;
-    private List<Entity> _sceneEntities = new List<Entity>();
-
-    public GameplayScene(Texture2D pixel)
+    public class Camera
     {
-        _pixel = pixel;
+        public float Y;
+        public int TargetWidth = 480;
+        public int TargetHeight = 270;
 
-        // èãðîê èç êîìïîíåíòîâ
-        Entity player = new Entity();
-        player.AddComponent(new TransformComponent(new Vector2(300, 200), 32, 32));
-        player.AddComponent(new PhysicsComponent());
-        player.AddComponent(new JumpKingComponent());
-        player.AddComponent(new RenderComponent(Color.White));
-        _sceneEntities.Add(player);
-
-        // ïëàòôîðìû
-        AddPlatform(50, 450, 700, 40);
-        AddPlatform(50, 200, 40, 250);
-        AddPlatform(710, 200, 40, 250);
-        AddPlatform(350, 330, 100, 20);
-    }
-
-    private void AddPlatform(int x, int y, int w, int h)
-    {
-        Entity plat = new Entity();
-        plat.AddComponent(new TransformComponent(new Vector2(x, y), w, h));
-        plat.AddComponent(new RenderComponent(Color.Gray));
-        _sceneEntities.Add(plat);
-    }
-
-    public override void Update(GameTime gameTime)
-    {
-        var platforms = _sceneEntities
-            .Where(e => e.HasComponent<TransformComponent>() && !e.HasComponent<JumpKingComponent>())
-            .Select(e => e.GetComponent<TransformComponent>().Bounds)
-            .ToList();
-
-        foreach (var entity in _sceneEntities)
+        public void Follow(Vector2 targetPosition, float lerpSpeed)
         {
-            UpdateJumpKingInputSystem(entity);
-            UpdateMovementAndCollisionSystem(entity, platforms);
+                float targetY = targetPosition.Y - (TargetHeight / 2);
+                Y = MathHelper.Lerp(Y, targetY, lerpSpeed);
         }
     }
 
-    // îáðàáîòêà ââîäà ãåðîÿ
-    private void UpdateJumpKingInputSystem(Entity entity)
+    public class GameplayScene : Scene
     {
-        if (!entity.HasComponent<JumpKingComponent>() || !entity.HasComponent<PhysicsComponent>()) return;
+        private Texture2D _pixel;
 
-        var jk = entity.GetComponent<JumpKingComponent>();
-        var phys = entity.GetComponent<PhysicsComponent>();
+        private List<Entity> _backgroundEntities = new List<Entity>();
+        private List<Entity> _gameEntities = new List<Entity>();
 
-        if (phys.IsGrounded)
+        private Camera _camera = new Camera();
+        private Entity _playerEntity;
+
+        public GameplayScene(Texture2D pixel, ContentManager content)
         {
-            if (Input.Down(Keys.Space))
-            {
-                jk.IsCharging = true;
-                phys.Velocity.X = 0;
-                jk.JumpCharge += jk.ChargeSpeed;
-                if (jk.JumpCharge > jk.MaxCharge) jk.JumpCharge = jk.MaxCharge;
-            }
-            else if (jk.IsCharging)
-            {
-                jk.IsCharging = false;
-                phys.Velocity.Y = -(jk.BaseJumpForce + jk.JumpCharge);
+            _pixel = pixel;
 
-                if (Input.Down(Keys.Left) || Input.Down(Keys.A)) phys.Velocity.X = -phys.WalkSpeed * 1.2f;
-                else if (Input.Down(Keys.Right) || Input.Down(Keys.D)) phys.Velocity.X = phys.WalkSpeed * 1.2f;
-                else phys.Velocity.X = 0;
+            int totalSections = 3;
+            int sectionHeight = 270;
 
-                jk.JumpCharge = 0f;
-                phys.IsGrounded = false;
-            }
-            else
+            for (int i = 0; i < totalSections; i++)
             {
-                if (Input.Down(Keys.Left) || Input.Down(Keys.A)) phys.Velocity.X = -phys.WalkSpeed;
-                else if (Input.Down(Keys.Right) || Input.Down(Keys.D)) phys.Velocity.X = phys.WalkSpeed;
-                else phys.Velocity.X = 0;
+                Texture2D sectionTex = content.Load<Texture2D>($"bg_layer_{i}");
+
+                int yPosition = -(i * sectionHeight);
+                AddBackgroundSection(sectionTex, yPosition);
+            }
+
+            _playerEntity = new Entity();
+            _playerEntity.AddComponent(new TransformComponent(new Vector2(240, 200), 16, 20));
+            _playerEntity.AddComponent(new PhysicsComponent());
+            _playerEntity.AddComponent(new JumpKingComponent());
+            _playerEntity.AddComponent(new AnimatorComponent(content.Load<Texture2D>("player_sheet"), 16, 20));
+            _gameEntities.Add(_playerEntity);
+
+            AddPlatform(0, 250, 480, 20);
+
+            AddPlatform(0, 0, 20, 270);
+            AddPlatform(460, 0, 20, 270);
+            AddPlatform(140, 160, 100, 15);
+            AddPlatform(280, 110, 80, 15);
+
+            // /\ /\ /\ /\ /\
+            // || || || || ||
+            //ÑÎÇÄÀÍÈÅ ÏËÀÒÔÎÐÌ ÏÐÎÈÑÕÎÄÈÒ ÇÄÅÑÜ !!!
+        }
+
+        private void AddBackgroundSection(Texture2D tex, int yPosition)
+        {
+            Entity bg = new Entity();
+            bg.AddComponent(new TransformComponent(new Vector2(0, yPosition), 480, 270));
+            bg.AddComponent(new SpriteComponent(tex));
+            _backgroundEntities.Add(bg);
+        }
+
+        private void AddPlatform(int x, int y, int w, int h)
+        {
+            Entity plat = new Entity();
+            plat.AddComponent(new TransformComponent(new Vector2(x, y), w, h));
+
+            //ÏÐÈ ÑÎÇÄÀÍÈÈ ÏËÀÒÔÎÐÌ ÆÅËÀÒÅËÜÍÎ ÐÀÑÊÎÌÌÅÍÒÈÐÎÂÀÒÜ ÑÒÐÎÊÓ ÍÈÆÅ,
+            //ÁÅÇ ÍÅ¨ ÏËÀÒÔÎÐÌÛ ÁÓÄÓÒ ÍÅÂÈÄÈÌÛÌÈ, ÊÀÊ ÑÎÁÑÒÂÅÍÍÎ È ÄÎËÆÍÛ ÁÛÒÜ !!!
+            // || || || || ||
+            // \/ \/ \/ \/ \/ 
+
+
+            //plat.AddComponent(new RenderComponent(Color.Red));
+
+            // /\ /\ /\ /\ /\
+            // || || || || ||
+
+            _gameEntities.Add(plat);
+        }
+
+        public override void Update(GameTime gameTime)
+        {
+            var platforms = _gameEntities
+                .Where(e => e.HasComponent<TransformComponent>() && !e.HasComponent<JumpKingComponent>())
+                .Select(e => e.GetComponent<TransformComponent>().Bounds)
+                .ToList();
+
+            foreach (var entity in _gameEntities)
+            {
+                UpdateJumpKingInputSystem(entity);
+                UpdateMovementAndCollisionSystem(entity, platforms);
+                UpdateAnimationSystem(entity, gameTime);
+            }
+
+            if (_playerEntity != null)
+            {
+                var playerTransform = _playerEntity.GetComponent<TransformComponent>();
+                _camera.Follow(playerTransform.Position, 0.1f);
             }
         }
-    }
 
-    // ôèçèêà (êîëëèçèè, ãðàâèòàöèÿ è òä.)
-    private void UpdateMovementAndCollisionSystem(Entity entity, List<Rectangle> platforms)
-    {
-        if (!entity.HasComponent<TransformComponent>() || !entity.HasComponent<PhysicsComponent>()) return;
-
-        var transform = entity.GetComponent<TransformComponent>();
-        var phys = entity.GetComponent<PhysicsComponent>();
-
-        if (!phys.IsGrounded) phys.Velocity.Y += phys.Gravity;
-
-        transform.Position += phys.Velocity;
-        phys.IsGrounded = false;
-
-        Rectangle bounds = transform.Bounds;
-
-        foreach (var platform in platforms)
+        private void UpdateJumpKingInputSystem(Entity entity)
         {
-            if (bounds.Intersects(platform))
+            if (!entity.HasComponent<JumpKingComponent>() || !entity.HasComponent<PhysicsComponent>()) return;
+
+            var jk = entity.GetComponent<JumpKingComponent>();
+            var phys = entity.GetComponent<PhysicsComponent>();
+
+            if (phys.IsGrounded)
             {
-                if (phys.Velocity.Y > 0 && transform.Position.Y + transform.Height - phys.Velocity.Y <= platform.Top + 4)
+                if (Input.Down(Keys.Space))
                 {
-                    transform.Position.Y = platform.Top - transform.Height;
-                    phys.Velocity = Vector2.Zero;
-                    phys.IsGrounded = true;
+                    jk.IsCharging = true;
+                    phys.Velocity.X = 0;
+                    jk.JumpCharge += jk.ChargeSpeed;
+                    if (jk.JumpCharge > jk.MaxCharge) jk.JumpCharge = jk.MaxCharge;
                 }
-                else if (phys.Velocity.Y < 0 && transform.Position.Y - phys.Velocity.Y >= platform.Bottom - 4)
+                else if (jk.IsCharging)
                 {
-                    transform.Position.Y = platform.Bottom;
-                    phys.Velocity.Y = 0;
+                    jk.IsCharging = false;
+                    phys.Velocity.Y = -(jk.BaseJumpForce + jk.JumpCharge);
+
+                    if (Input.Down(Keys.Left) || Input.Down(Keys.A)) phys.Velocity.X = -phys.WalkSpeed * 1.5f;
+                    else if (Input.Down(Keys.Right) || Input.Down(Keys.D)) phys.Velocity.X = phys.WalkSpeed * 1.5f;
+                    else phys.Velocity.X = 0;
+
+                    jk.JumpCharge = 0f;
+                    phys.IsGrounded = false;
                 }
                 else
                 {
-                    if (phys.Velocity.X > 0)
+                    if (Input.Down(Keys.Left) || Input.Down(Keys.A)) phys.Velocity.X = -phys.WalkSpeed;
+                    else if (Input.Down(Keys.Right) || Input.Down(Keys.D)) phys.Velocity.X = phys.WalkSpeed;
+                    else phys.Velocity.X = 0;
+                }
+            }
+        }
+
+        private void UpdateMovementAndCollisionSystem(Entity entity, List<Rectangle> platforms)
+        {
+            if (!entity.HasComponent<TransformComponent>() || !entity.HasComponent<PhysicsComponent>()) return;
+
+            var transform = entity.GetComponent<TransformComponent>();
+            var phys = entity.GetComponent<PhysicsComponent>();
+
+            if (!phys.IsGrounded) phys.Velocity.Y += phys.Gravity;
+
+            transform.Position += phys.Velocity;
+            phys.IsGrounded = false;
+
+            Rectangle bounds = transform.Bounds;
+
+            foreach (var platform in platforms)
+            {
+                if (bounds.Intersects(platform))
+                {
+                    if (phys.Velocity.Y > 0 && transform.Position.Y + transform.Height - phys.Velocity.Y <= platform.Top + 4)
                     {
-                        transform.Position.X = platform.Left - transform.Width;
-                        phys.Velocity.X = -phys.Velocity.X * 0.6f;
+                        transform.Position.Y = platform.Top - transform.Height;
+                        phys.Velocity = Vector2.Zero;
+                        phys.IsGrounded = true;
                     }
-                    else if (phys.Velocity.X < 0)
+                    else if (phys.Velocity.Y < 0 && transform.Position.Y - phys.Velocity.Y >= platform.Bottom - 4)
                     {
-                        transform.Position.X = platform.Right;
-                        phys.Velocity.X = -phys.Velocity.X * 0.6f;
+                        transform.Position.Y = platform.Bottom;
+                        phys.Velocity.Y = 0;
+                    }
+                    else
+                    {
+                        if (phys.Velocity.X > 0)
+                        {
+                            transform.Position.X = platform.Left - transform.Width;
+                            phys.Velocity.X = -phys.Velocity.X * 0.6f;
+                        }
+                        else if (phys.Velocity.X < 0)
+                        {
+                            transform.Position.X = platform.Right;
+                            phys.Velocity.X = -phys.Velocity.X * 0.6f;
+                        }
                     }
                 }
             }
         }
-    }
 
-    // äåêîðàòèâíàÿ îòðèñîâêà
-    public override void Draw(SpriteBatch spriteBatch)
-    {
-        foreach (var entity in _sceneEntities)
+        private void UpdateAnimationSystem(Entity entity, GameTime gameTime)
         {
-            if (!entity.HasComponent<TransformComponent>() || !entity.HasComponent<RenderComponent>()) continue;
+            if (!entity.HasComponent<AnimatorComponent>() || !entity.HasComponent<PhysicsComponent>() || !entity.HasComponent<JumpKingComponent>()) return;
 
-            var transform = entity.GetComponent<TransformComponent>();
-            var render = entity.GetComponent<RenderComponent>();
+            var anim = entity.GetComponent<AnimatorComponent>();
+            var phys = entity.GetComponent<PhysicsComponent>();
+            var jk = entity.GetComponent<JumpKingComponent>();
 
-            Color finalColor = render.DefaultColor;
+            float dt = (float)gameTime.ElapsedGameTime.TotalSeconds;
 
-            if (entity.HasComponent<JumpKingComponent>() && entity.HasComponent<PhysicsComponent>())
+            if (!phys.IsGrounded)
             {
-                var jk = entity.GetComponent<JumpKingComponent>();
-                var phys = entity.GetComponent<PhysicsComponent>();
-
-                if (jk.IsCharging)
-                    finalColor = Color.Lerp(Color.White, Color.Red, jk.JumpCharge / jk.MaxCharge);
-                else if (!phys.IsGrounded)
-                    finalColor = Color.LightSkyBlue;
+                anim.CurrentFrame = 0;
             }
+            else if (jk.IsCharging)
+            {
+                anim.CurrentFrame = 2;
+            }
+            else if (Math.Abs(phys.Velocity.X) > 0.1f)
+            {
+                anim.TimeSinceLastFrame += dt;
+                if (anim.TimeSinceLastFrame >= anim.FrameTime)
+                {
+                    anim.TimeSinceLastFrame = 0;
+                    anim.CurrentFrame = anim.CurrentFrame == 0 ? 1 : 0;
+                }
+            }
+            else
+            {
+                anim.CurrentFrame = 0;
+            }
+        }
 
-            spriteBatch.Draw(_pixel, transform.Bounds, finalColor);
+        public override void Draw(SpriteBatch spriteBatch)
+        {
+            spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp);
+
+            DrawEntityList(spriteBatch, _backgroundEntities);
+
+            DrawEntityList(spriteBatch, _gameEntities);
+
+            spriteBatch.End();
+        }
+
+        private void DrawEntityList(SpriteBatch spriteBatch, List<Entity> entities)
+        {
+            foreach (var entity in entities)
+            {
+                if (!entity.HasComponent<TransformComponent>()) continue;
+
+                var transform = entity.GetComponent<TransformComponent>();
+
+                Rectangle screenBounds = new Rectangle(
+                    transform.Bounds.X,
+                    transform.Bounds.Y - (int)_camera.Y,
+                    transform.Bounds.Width,
+                    transform.Bounds.Height
+                );
+
+                if (screenBounds.Bottom < -50 || screenBounds.Top > 320) continue;
+
+                if (entity.HasComponent<SpriteComponent>())
+                {
+                    var sprite = entity.GetComponent<SpriteComponent>();
+                    spriteBatch.Draw(sprite.Texture, screenBounds, sprite.SourceRectangle, sprite.Color);
+                }
+                else if (entity.HasComponent<AnimatorComponent>())
+                {
+                    var anim = entity.GetComponent<AnimatorComponent>();
+                    Rectangle sourceRect = new Rectangle(anim.CurrentFrame * anim.FrameWidth, 0, anim.FrameWidth, anim.FrameHeight);
+                    spriteBatch.Draw(anim.SpriteSheet, screenBounds, sourceRect, Color.White);
+                }
+                else if (entity.HasComponent<RenderComponent>())
+                {
+                    var render = entity.GetComponent<RenderComponent>();
+                    spriteBatch.Draw(_pixel, screenBounds, render.DefaultColor);
+                }
+            }
         }
     }
 }
