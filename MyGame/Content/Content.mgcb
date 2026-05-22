@@ -61,3 +61,8 @@
 /processorParam:TextureFormat=Color
 /build:puck.png
 
+#begin Sounds/air-hokkey-bgm.mp3
+/importer:Mp3Importer
+/processor:SongProcessor
+/build:Sounds/air-hokkey-bgm.mp3
+

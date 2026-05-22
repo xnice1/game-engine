@@ -1,5 +1,6 @@
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Input;
+using Microsoft.Xna.Framework.Media;
 
 namespace MyGame;
 
@@ -21,6 +22,11 @@ public class Game1 : KripakEngine.EngineCore
         var enemyTex  = Content.Load<Microsoft.Xna.Framework.Graphics.Texture2D>("enemy");
         var puckTex   = Content.Load<Microsoft.Xna.Framework.Graphics.Texture2D>("puck");
         _currentScene = new AirHockeyScene(_pixel, bgTex, playerTex, enemyTex, puckTex);
+
+        var bgm = Content.Load<Microsoft.Xna.Framework.Media.Song>("Sounds/air-hokkey-bgm");
+        MediaPlayer.IsRepeating = true;
+        MediaPlayer.Volume = 0.6f;
+        MediaPlayer.Play(bgm);
     }
 
     protected override void Update(GameTime gameTime)
