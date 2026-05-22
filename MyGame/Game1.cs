@@ -16,7 +16,11 @@ public class Game1 : KripakEngine.EngineCore
     protected override void LoadContent()
     {
         base.LoadContent();
-        _currentScene = new AirHockeyScene(_pixel);
+        var bgTex     = Content.Load<Microsoft.Xna.Framework.Graphics.Texture2D>("background");
+        var playerTex = Content.Load<Microsoft.Xna.Framework.Graphics.Texture2D>("player");
+        var enemyTex  = Content.Load<Microsoft.Xna.Framework.Graphics.Texture2D>("enemy");
+        var puckTex   = Content.Load<Microsoft.Xna.Framework.Graphics.Texture2D>("puck");
+        _currentScene = new AirHockeyScene(_pixel, bgTex, playerTex, enemyTex, puckTex);
     }
 
     protected override void Update(GameTime gameTime)
@@ -33,7 +37,7 @@ public class Game1 : KripakEngine.EngineCore
 
     protected override void Draw(GameTime gameTime)
     {
-        GraphicsDevice.Clear(new Color(20, 50, 28));
+        GraphicsDevice.Clear(Color.Black);
 
         _spriteBatch.Begin();
         _currentScene.Draw(_spriteBatch);
