@@ -7,6 +7,7 @@ public class PaddleComponent : Component
 {
     public float Speed;
     public bool IsPlayer;
+    public Vector2 Velocity; // last-frame movement, used for puck impulse
     public PaddleComponent(float speed, bool isPlayer) { Speed = speed; IsPlayer = isPlayer; }
 }
 

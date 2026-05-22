@@ -16,7 +16,7 @@ public class Game1 : KripakEngine.EngineCore
     protected override void LoadContent()
     {
         base.LoadContent();
-        _currentScene = new PongScene(_pixel, 800, 500);
+        _currentScene = new AirHockeyScene(_pixel);
     }
 
     protected override void Update(GameTime gameTime)
@@ -33,7 +33,7 @@ public class Game1 : KripakEngine.EngineCore
 
     protected override void Draw(GameTime gameTime)
     {
-        GraphicsDevice.Clear(Color.DarkSlateGray);
+        GraphicsDevice.Clear(new Color(20, 50, 28));
 
         _spriteBatch.Begin();
         _currentScene.Draw(_spriteBatch);
