@@ -119,7 +119,7 @@ namespace JumpKingClone.Scenes
 
             _gameEntities.Add(_playerEntity);
 
-            AddPlatform(0, 250, 480, 5);
+            AddPlatform(0, 262a, 480, 5);
             AddPlatform(195, 200, 25, 10);
             AddPlatform(250, 150, 22, 20);
             AddPlatform(240, 70, 5, 48);
