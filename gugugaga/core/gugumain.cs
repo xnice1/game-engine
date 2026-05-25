@@ -1,4 +1,5 @@
-﻿using JumpKingClone.Scenes;
+﻿using JumpKingClone.Core;
+using JumpKingClone.Scenes;
 using KripakEngine;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -9,6 +10,7 @@ namespace gugugaga
     {
         private RenderTarget2D _virtualRenderTarget;
         private Scene _currentScene;
+        private GameSfx _sfx;
 
         public const int TargetWidth = 480;
         public const int TargetHeight = 270;
@@ -25,8 +27,15 @@ namespace gugugaga
             base.Initialize();
 
             _virtualRenderTarget = new RenderTarget2D(GraphicsDevice, TargetWidth, TargetHeight);
+        }
 
-            _currentScene = new JumpKingClone.Scenes.GameplayScene(_pixel, Content);
+        protected override void LoadContent()
+        {
+            base.LoadContent();
+
+            _sfx = new GameSfx(Content);
+            _sfx.StartBgm();
+            _currentScene = new GameplayScene(_pixel, Content, _sfx);
         }
 
         protected override void Update(GameTime gameTime)

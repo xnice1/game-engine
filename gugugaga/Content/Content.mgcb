@@ -11,3 +11,81 @@
 
 
 #---------------------------------- Content ---------------------------------#
+
+#begin bg_layer_0.png
+/importer:TextureImporter
+/processor:TextureProcessor
+/processorParam:ColorKeyColor=255,0,255,255
+/processorParam:ColorKeyEnabled=True
+/processorParam:GenerateMipmaps=False
+/processorParam:PremultiplyAlpha=True
+/processorParam:ResizeToPowerOfTwo=False
+/processorParam:MakeSquare=False
+/processorParam:TextureFormat=Color
+/build:bg_layer_0.png
+
+#begin bg_layer_1.png
+/importer:TextureImporter
+/processor:TextureProcessor
+/processorParam:ColorKeyColor=255,0,255,255
+/processorParam:ColorKeyEnabled=True
+/processorParam:GenerateMipmaps=False
+/processorParam:PremultiplyAlpha=True
+/processorParam:ResizeToPowerOfTwo=False
+/processorParam:MakeSquare=False
+/processorParam:TextureFormat=Color
+/build:bg_layer_1.png
+
+#begin bg_layer_2.png
+/importer:TextureImporter
+/processor:TextureProcessor
+/processorParam:ColorKeyColor=255,0,255,255
+/processorParam:ColorKeyEnabled=True
+/processorParam:GenerateMipmaps=False
+/processorParam:PremultiplyAlpha=True
+/processorParam:ResizeToPowerOfTwo=False
+/processorParam:MakeSquare=False
+/processorParam:TextureFormat=Color
+/build:bg_layer_2.png
+
+#begin player_sheet.png
+/importer:TextureImporter
+/processor:TextureProcessor
+/processorParam:ColorKeyColor=255,0,255,255
+/processorParam:ColorKeyEnabled=True
+/processorParam:GenerateMipmaps=False
+/processorParam:PremultiplyAlpha=True
+/processorParam:ResizeToPowerOfTwo=False
+/processorParam:MakeSquare=False
+/processorParam:TextureFormat=Color
+/build:player_sheet.png
+
+#begin Sounds/jump.mp3
+/importer:Mp3Importer
+/processor:SoundEffectProcessor
+/build:Sounds/jump.mp3
+#end
+
+#begin Sounds/land.mp3
+/importer:Mp3Importer
+/processor:SoundEffectProcessor
+/build:Sounds/land.mp3
+#end
+
+#begin Sounds/wall-recochet.mp3
+/importer:Mp3Importer
+/processor:SoundEffectProcessor
+/build:Sounds/wall-recochet.mp3
+#end
+
+#begin Sounds/win-sound.mp3
+/importer:Mp3Importer
+/processor:SoundEffectProcessor
+/build:Sounds/win-sound.mp3
+#end
+
+#begin Sounds/bgm background music.mp3
+/importer:Mp3Importer
+/processor:SongProcessor
+/build:Sounds/bgm background music.mp3
+#end

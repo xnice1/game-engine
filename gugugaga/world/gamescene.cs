@@ -40,6 +40,12 @@ namespace JumpKingClone.Scenes
 
         private Camera _camera = new Camera();
         private Entity _playerEntity;
+        private GameSfx _sfx;
+        private bool _isAirborne;
+        private bool _winPlayed;
+        private float _wallSfxCooldown;
+
+        private const float WinHeightY = -450f;
 
         private Texture2D LoadPngDirect(GraphicsDevice graphicsDevice, string fileName)
         {
@@ -84,9 +90,10 @@ namespace JumpKingClone.Scenes
             return _pixel;
         }
 
-        public GameplayScene(Texture2D pixel, ContentManager content)
+        public GameplayScene(Texture2D pixel, ContentManager content, GameSfx sfx)
         {
             _pixel = pixel;
+            _sfx = sfx;
 
             GraphicsDevice graphicsDevice = pixel.GraphicsDevice;
 
@@ -119,7 +126,7 @@ namespace JumpKingClone.Scenes
 
             _gameEntities.Add(_playerEntity);
 
-            AddPlatform(0, 262a, 480, 5);
+            AddPlatform(0, 262, 480, 5);
             AddPlatform(195, 200, 25, 10);
             AddPlatform(250, 150, 22, 20);
             AddPlatform(240, 70, 5, 48);
@@ -176,11 +183,8 @@ namespace JumpKingClone.Scenes
 
         public override void Update(GameTime gameTime)
         {
-            if (_playerEntity != null)
-            {
-                var playerTransform = _playerEntity.GetComponent<TransformComponent>();
-                _camera.Follow(playerTransform.Position, 0.1f);
-            }
+            float dt = (float)gameTime.ElapsedGameTime.TotalSeconds;
+            if (_wallSfxCooldown > 0) _wallSfxCooldown -= dt;
 
             var platforms = _gameEntities
                 .Where(e => e.HasComponent<TransformComponent>() && !e.HasComponent<JumpKingComponent>())
@@ -192,6 +196,22 @@ namespace JumpKingClone.Scenes
                 UpdateJumpKingInputSystem(entity);
                 UpdateMovementAndCollisionSystem(entity, platforms);
                 UpdateAnimationSystem(entity, gameTime);
+            }
+
+            if (_playerEntity != null)
+            {
+                var playerTransform = _playerEntity.GetComponent<TransformComponent>();
+                var playerPhys = _playerEntity.GetComponent<PhysicsComponent>();
+                _camera.Follow(playerTransform.Position, 0.1f);
+
+                if (!playerPhys.IsGrounded)
+                    _isAirborne = true;
+
+                if (!_winPlayed && playerTransform.Position.Y < WinHeightY)
+                {
+                    _winPlayed = true;
+                    _sfx?.PlayWin();
+                }
             }
         }
 
@@ -222,6 +242,8 @@ namespace JumpKingClone.Scenes
 
                     jk.JumpCharge = 0f;
                     phys.IsGrounded = false;
+                    _isAirborne = true;
+                    _sfx?.PlayJump();
                 }
                 else
                 {
@@ -239,7 +261,10 @@ namespace JumpKingClone.Scenes
             var transform = entity.GetComponent<TransformComponent>();
             var phys = entity.GetComponent<PhysicsComponent>();
 
-            if (!phys.IsGrounded) phys.Velocity.Y += phys.Gravity;
+            bool wasGrounded = phys.IsGrounded;
+            if (!wasGrounded) phys.Velocity.Y += phys.Gravity;
+
+            bool isPlayer = entity == _playerEntity;
 
             transform.Position.X += phys.Velocity.X;
             Rectangle boundsX = transform.Bounds;
@@ -253,7 +278,10 @@ namespace JumpKingClone.Scenes
                         transform.Position.X = platform.Left - transform.Width;
 
                         if (!phys.IsGrounded)
+                        {
                             phys.Velocity.X = -phys.Velocity.X * 0.6f;
+                            TryWallRecochetSfx(entity);
+                        }
                         else
                             phys.Velocity.X = 0;
                     }
@@ -262,7 +290,10 @@ namespace JumpKingClone.Scenes
                         transform.Position.X = platform.Right;
 
                         if (!phys.IsGrounded)
+                        {
                             phys.Velocity.X = -phys.Velocity.X * 0.6f;
+                            TryWallRecochetSfx(entity);
+                        }
                         else
                             phys.Velocity.X = 0;
                     }
@@ -280,23 +311,58 @@ namespace JumpKingClone.Scenes
                     if (phys.Velocity.Y > 0)
                     {
                         transform.Position.Y = platform.Top - transform.Height;
-
-                        phys.Velocity.Y = 0;
-
+                        phys.Velocity = Vector2.Zero;
+                        if (isPlayer && _isAirborne)
+                            _sfx?.PlayLand();
                         phys.IsGrounded = true;
-
-                        if (Math.Abs(phys.Velocity.X) < phys.WalkSpeed * 1.1f)
-                        {
-
-                        }
+                        if (isPlayer) _isAirborne = false;
                     }
                     else if (phys.Velocity.Y < 0)
                     {
                         transform.Position.Y = platform.Bottom;
                         phys.Velocity.Y = 0;
                     }
+                    else
+                    {
+                        if (phys.Velocity.X > 0)
+                        {
+                            transform.Position.X = platform.Left - transform.Width;
+                            phys.Velocity.X = -phys.Velocity.X * 0.6f;
+                            TryWallRecochetSfx(entity);
+                        }
+                        else if (phys.Velocity.X < 0)
+                        {
+                            transform.Position.X = platform.Right;
+                            phys.Velocity.X = -phys.Velocity.X * 0.6f;
+                            TryWallRecochetSfx(entity);
+                        }
+                    }
                 }
             }
+
+            // Stay grounded when resting on a platform (stops IsGrounded flicker / repeated land SFX)
+            if (!phys.IsGrounded && isPlayer)
+            {
+                float feet = transform.Position.Y + transform.Height;
+                foreach (var platform in platforms)
+                {
+                    if (feet < platform.Top - 2 || feet > platform.Top + 4) continue;
+                    if (transform.Position.X + transform.Width <= platform.Left) continue;
+                    if (transform.Position.X >= platform.Right) continue;
+
+                    transform.Position.Y = platform.Top - transform.Height;
+                    phys.Velocity.Y = 0;
+                    phys.IsGrounded = true;
+                    break;
+                }
+            }
+        }
+
+        private void TryWallRecochetSfx(Entity entity)
+        {
+            if (!entity.HasComponent<JumpKingComponent>() || _wallSfxCooldown > 0) return;
+            _wallSfxCooldown = 0.12f;
+            _sfx?.PlayWallRecochet();
         }
 
         private void UpdateAnimationSystem(Entity entity, GameTime gameTime)
