@@ -71,6 +71,8 @@ namespace JumpKingClone.Components
         public float TimeSinceLastFrame;
         public float FrameTime = 0.1f; //100 мс на кадр
 
+        public bool FacingRight = true;
+
         public AnimatorComponent(Texture2D sheet, int frameWidth, int frameHeight)
         {
             SpriteSheet = sheet;

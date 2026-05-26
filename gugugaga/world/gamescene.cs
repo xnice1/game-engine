@@ -19,8 +19,11 @@ namespace JumpKingClone.Scenes
 
         public void Follow(Vector2 targetPosition, float lerpSpeed)
         {
-                float targetY = targetPosition.Y - (TargetHeight / 2);
-                Y = MathHelper.Lerp(Y, targetY, lerpSpeed);
+            float targetY = targetPosition.Y - (TargetHeight / 2);
+            Y = MathHelper.Lerp(Y, targetY, lerpSpeed);
+
+            if (Y > 0)
+                Y = 0;
         }
     }
 
@@ -45,16 +48,8 @@ namespace JumpKingClone.Scenes
             _pixel = pixel;
             _sfx = sfx;
 
-            int totalSections = 3;
-            int sectionHeight = 270;
-
-            for (int i = 0; i < totalSections; i++)
-            {
-                Texture2D sectionTex = content.Load<Texture2D>($"bg_layer_{i}");
-
-                int yPosition = -(i * sectionHeight);
-                AddBackgroundSection(sectionTex, yPosition);
-            }
+            for (int i = 0; i < 3; i++)
+                AddBackgroundSection(content.Load<Texture2D>($"bg_layer_{i}"), -(i * 270));
 
             _playerEntity = new Entity();
             _playerEntity.AddComponent(new TransformComponent(new Vector2(240, 200), 16, 20));
@@ -63,16 +58,40 @@ namespace JumpKingClone.Scenes
             _playerEntity.AddComponent(new AnimatorComponent(content.Load<Texture2D>("player_sheet"), 16, 20));
             _gameEntities.Add(_playerEntity);
 
-            AddPlatform(0, 250, 480, 20);
-
-            AddPlatform(0, 0, 20, 270);
-            AddPlatform(460, 0, 20, 270);
-            AddPlatform(140, 160, 100, 15);
-            AddPlatform(280, 110, 80, 15);
-
-            // /\ /\ /\ /\ /\
-            // || || || || ||
-            //    !!!
+            AddPlatform(0, 262, 480, 5);
+            AddPlatform(195, 200, 25, 10);
+            AddPlatform(250, 150, 22, 20);
+            AddPlatform(240, 70, 5, 48);
+            AddPlatform(273, 70, 10, 48);
+            AddPlatform(276, 108, 45, 7);
+            AddPlatform(315, 98, 5, 20);
+            AddPlatform(363, 90, 32, 10);
+            AddPlatform(428, 105, 27, 7);
+            AddPlatform(454, 47, 27, 7);
+            AddPlatform(357, 15, 32, 10);
+            AddPlatform(299, 18, 32, 10);
+            AddPlatform(288, -38, 10, 70);
+            AddPlatform(390, -52, 10, 80);
+            AddPlatform(400, -28, 25, 7);
+            AddPlatform(341, -308, 10, 286);
+            AddPlatform(200, -50, 37, 7);
+            AddPlatform(390, -100, 90, 13);
+            AddPlatform(35, -136, 80, 18);
+            AddPlatform(0, -200, 29, 18);
+            AddPlatform(73, -203, 35, 25);
+            AddPlatform(65, -265, 105, 30);
+            AddPlatform(237, -268, 35, 30);
+            AddPlatform(303, -309, 35, 30);
+            AddPlatform(198, -226, 10, 17);
+            AddPlatform(198, -309, 10, 26);
+            AddPlatform(156, -340, 108, 30);
+            AddPlatform(188, -397, 125, 25);
+            AddPlatform(188, -443, 9, 45);
+            AddPlatform(128, -395, 27, 90);
+            AddPlatform(314, -396, 112, 10);
+            AddPlatform(115, -125, 10, 8);
+            AddPlatform(0, -545, 2, 800);
+            AddPlatform(479, -545, 2, 800);
         }
 
         private void AddBackgroundSection(Texture2D tex, int yPosition)
@@ -87,18 +106,7 @@ namespace JumpKingClone.Scenes
         {
             Entity plat = new Entity();
             plat.AddComponent(new TransformComponent(new Vector2(x, y), w, h));
-
-            //      ,
-            // ?   ,      !!!
-            // || || || || ||
-            // \/ \/ \/ \/ \/ 
-
-
             //plat.AddComponent(new RenderComponent(Color.Red));
-
-            // /\ /\ /\ /\ /\
-            // || || || || ||
-
             _gameEntities.Add(plat);
         }
 
@@ -193,41 +201,42 @@ namespace JumpKingClone.Scenes
 
             foreach (var platform in platforms)
             {
-                if (bounds.Intersects(platform))
+                if (!bounds.Intersects(platform)) continue;
+
+                if (phys.Velocity.Y > 0 && transform.Position.Y + transform.Height - phys.Velocity.Y <= platform.Top + 4)
                 {
-                    if (phys.Velocity.Y > 0 && transform.Position.Y + transform.Height - phys.Velocity.Y <= platform.Top + 4)
+                    transform.Position.Y = platform.Top - transform.Height;
+                    phys.Velocity = Vector2.Zero;
+                    if (isPlayer && _isAirborne)
+                        _sfx?.PlayLand();
+                    phys.IsGrounded = true;
+                    if (isPlayer) _isAirborne = false;
+                }
+                else if (phys.Velocity.Y < 0 && transform.Position.Y - phys.Velocity.Y >= platform.Bottom - 4)
+                {
+                    transform.Position.Y = platform.Bottom;
+                    phys.Velocity.Y = 0;
+                }
+                else
+                {
+                    if (phys.Velocity.X > 0)
                     {
-                        transform.Position.Y = platform.Top - transform.Height;
-                        phys.Velocity = Vector2.Zero;
-                        if (isPlayer && _isAirborne)
-                            _sfx?.PlayLand();
-                        phys.IsGrounded = true;
-                        if (isPlayer) _isAirborne = false;
+                        transform.Position.X = platform.Left - transform.Width;
+                        phys.Velocity.X = -phys.Velocity.X * 0.6f;
+                        TryWallRecochetSfx(entity);
                     }
-                    else if (phys.Velocity.Y < 0 && transform.Position.Y - phys.Velocity.Y >= platform.Bottom - 4)
+                    else if (phys.Velocity.X < 0)
                     {
-                        transform.Position.Y = platform.Bottom;
-                        phys.Velocity.Y = 0;
-                    }
-                    else
-                    {
-                        if (phys.Velocity.X > 0)
-                        {
-                            transform.Position.X = platform.Left - transform.Width;
-                            phys.Velocity.X = -phys.Velocity.X * 0.6f;
-                            TryWallRecochetSfx(entity);
-                        }
-                        else if (phys.Velocity.X < 0)
-                        {
-                            transform.Position.X = platform.Right;
-                            phys.Velocity.X = -phys.Velocity.X * 0.6f;
-                            TryWallRecochetSfx(entity);
-                        }
+                        transform.Position.X = platform.Right;
+                        phys.Velocity.X = -phys.Velocity.X * 0.6f;
+                        TryWallRecochetSfx(entity);
                     }
                 }
+
+                bounds = transform.Bounds;
             }
 
-            // Stay grounded when resting on a platform (stops IsGrounded flicker / repeated land SFX)
+            // Prevent IsGrounded flicker when resting on a platform edge
             if (!phys.IsGrounded && isPlayer)
             {
                 float feet = transform.Position.Y + transform.Height;
@@ -260,23 +269,35 @@ namespace JumpKingClone.Scenes
             var phys = entity.GetComponent<PhysicsComponent>();
             var jk = entity.GetComponent<JumpKingComponent>();
 
-            float dt = (float)gameTime.ElapsedGameTime.TotalSeconds;
+            if (phys.Velocity.X > 0.01f) anim.FacingRight = true;
+            else if (phys.Velocity.X < -0.01f) anim.FacingRight = false;
 
-            if (!phys.IsGrounded)
+            float dt = (float)gameTime.ElapsedGameTime.TotalSeconds;
+            var inputState = Keyboard.GetState();
+            bool isMovingInput = inputState.IsKeyDown(Keys.Left) || inputState.IsKeyDown(Keys.A) ||
+                                 inputState.IsKeyDown(Keys.Right) || inputState.IsKeyDown(Keys.D);
+
+            if (!phys.IsGrounded && Math.Abs(phys.Velocity.Y) > 0.5f)
             {
-                anim.CurrentFrame = 0;
+                anim.CurrentFrame = 3;
             }
             else if (jk.IsCharging)
             {
                 anim.CurrentFrame = 2;
             }
-            else if (Math.Abs(phys.Velocity.X) > 0.1f)
+            else if (isMovingInput && Math.Abs(phys.Velocity.X) > 0.01f)
             {
                 anim.TimeSinceLastFrame += dt;
                 if (anim.TimeSinceLastFrame >= anim.FrameTime)
                 {
                     anim.TimeSinceLastFrame = 0;
-                    anim.CurrentFrame = anim.CurrentFrame == 0 ? 1 : 0;
+                    anim.CurrentFrame = anim.CurrentFrame switch
+                    {
+                        0 => 1,
+                        1 => 5,
+                        5 => 4,
+                        _ => 0
+                    };
                 }
             }
             else
@@ -288,11 +309,8 @@ namespace JumpKingClone.Scenes
         public override void Draw(SpriteBatch spriteBatch)
         {
             spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp);
-
             DrawEntityList(spriteBatch, _backgroundEntities);
-
             DrawEntityList(spriteBatch, _gameEntities);
-
             spriteBatch.End();
         }
 
@@ -303,7 +321,6 @@ namespace JumpKingClone.Scenes
                 if (!entity.HasComponent<TransformComponent>()) continue;
 
                 var transform = entity.GetComponent<TransformComponent>();
-
                 Rectangle screenBounds = new Rectangle(
                     transform.Bounds.X,
                     transform.Bounds.Y - (int)_camera.Y,
@@ -311,7 +328,7 @@ namespace JumpKingClone.Scenes
                     transform.Bounds.Height
                 );
 
-                if (screenBounds.Bottom < -50 || screenBounds.Top > 320) continue;
+                if (screenBounds.Bottom < -200 || screenBounds.Top > 500) continue;
 
                 if (entity.HasComponent<SpriteComponent>())
                 {
@@ -322,7 +339,8 @@ namespace JumpKingClone.Scenes
                 {
                     var anim = entity.GetComponent<AnimatorComponent>();
                     Rectangle sourceRect = new Rectangle(anim.CurrentFrame * anim.FrameWidth, 0, anim.FrameWidth, anim.FrameHeight);
-                    spriteBatch.Draw(anim.SpriteSheet, screenBounds, sourceRect, Color.White);
+                    SpriteEffects effects = anim.FacingRight ? SpriteEffects.None : SpriteEffects.FlipHorizontally;
+                    spriteBatch.Draw(anim.SpriteSheet, screenBounds, sourceRect, Color.White, 0f, Vector2.Zero, effects, 0f);
                 }
                 else if (entity.HasComponent<RenderComponent>())
                 {

@@ -1,4 +1,3 @@
-
 #----------------------------- Global Properties ----------------------------#
 
 /outputDir:bin/$(Platform)
@@ -90,4 +89,3 @@
 /processor:SongProcessor
 /build:Sounds/bgm background music.mp3
 #end
-
