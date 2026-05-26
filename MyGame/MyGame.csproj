@@ -27,6 +27,6 @@
     <PackageReference Include="MonoGame.Content.Builder.Task" Version="3.8.*" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\gugugaga\engine\KripakEngine.csproj" />
+    <ProjectReference Include="..\engine\KripakEngine.csproj" />
   </ItemGroup>
 </Project>

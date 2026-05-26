@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using JumpKingClone.Components;
 using KripakEngine;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
